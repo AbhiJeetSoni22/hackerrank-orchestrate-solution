@@ -1,134 +1,460 @@
 # STATUS.md
 
-## Project Status
+# Project Status
 
-**Project:** Multi-Modal Evidence Review Agent
-**Hackathon:** HackerRank Orchestrate
-**Current Phase:** Phase 5 Preparation
-**Architecture Status:** Frozen ✅
+**Project:** HackerRank Orchestrate — Multi-Modal Evidence Review
+**Current Status:** ✅ Submission Ready
+**Last Updated:** June 2026
 
 ---
-## Technical Notes:
-- Current implementation uses google-generativeai SDK.
-- SDK is deprecated but remains functional.
-- Migration to google.genai SDK can be done after hackathon if needed.
 
-# Architecture Summary
+# Completion Summary
+
+| Item                         | Value          |
+| ---------------------------- | -------------- |
+| Total Claims Processed       | 44 / 44        |
+| Failed Claims                | 0              |
+| Cache Hits (Final Run)       | 36             |
+| Gemini API Calls (Final Run) | 8              |
+| Output File                  | `output.csv` ✅ |
+| Checkpoint System            | Operational ✅  |
+| Resume System                | Operational ✅  |
+| Submission Readiness         | Ready ✅        |
+
+---
+
+# Architecture
 
 ```text
-claims.csv
-+ user_history.csv
-+ evidence_requirements.csv
-        │
-        ▼
-   csv_loader
-        │
-        ▼
- Pydantic Models
- (Claim, UserHistory,
-  EvidenceRequirement)
-        │
-        ▼
-   image_loader
-        │
-        ▼
-  prompt_builder
- (system prompt + user prompt)
-        │
-        ▼
-  gemini_client
- (Single Gemini Call)
-        │
-        ▼
- GeminiPerception
- (Perception Layer)
-        │
- ┌──────┴───────────┐
- │                  │
- ▼                  ▼
-risk_aggregator   rule_engine
-(Python)          (Python)
- │                  │
- └──────┬───────────┘
-        ▼
-   ClaimResult
-        │
-        ▼
-  output_writer
-        │
-        ▼
-    output.csv
+CSV Loader
+    │
+    ▼
+Image Loader
+    │
+    ▼
+Prompt Builder
+    │
+    ▼
+Cache Manager
+    │
+ ┌──┴─────────────┐
+ │                │
+ ▼                ▼
+HIT             MISS
+ │                │
+ ▼                ▼
+Load Cache    Gemini Client
+                  │
+                  ▼
+           Risk Aggregator
+                  │
+                  ▼
+             Rule Engine
+                  │
+                  ▼
+             Cache Writer
+                  │
+                  ▼
+          Checkpoint Writer
+                  │
+                  ▼
+            Output Writer
+                  │
+                  ▼
+              output.csv
 ```
 
 ---
 
-## Progress
+# Cache Architecture
 
-| Phase | Description | Status |
-|---|---|---|
-| 1 | Foundation: models, config, csv_loader, image_loader | ✅ Complete |
-| 2 | Gemini integration: gemini_client, prompt_builder | ✅ Complete |
-| 3 | Rule engine: rule_engine, risk_aggregator | ✅ Complete |
-| 4 | Pipeline: output_writer, main.py | ✅ Complete |
-| 5 | Evaluation, metrics, report, README | ✅ Complete |
+```text
+.cache/
+│
+├── checkpoint.json
+│
+├── claims/
+│   ├── user_002__....json
+│   └── ...
+│
+├── eval_strategy_a/
+│   ├── checkpoint.json
+│   └── claims/
+│
+└── eval_strategy_b/
+    ├── checkpoint.json
+    └── claims/
+```
 
----
+## Cache File Structure
 
-## All Completed Modules
-
-| File | Purpose |
-|---|---|
-| `code/models.py` | Pydantic v2 domain models and enums |
-| `code/config.py` | Paths, model name, rate-limit constants, OUTPUT_COLUMNS |
-| `code/services/csv_loader.py` | load_claims, load_user_history, load_evidence_requirements |
-| `code/services/image_loader.py` | Base64 encode, MIME detection, missing-file warning |
-| `code/services/gemini_client.py` | Gemini call, retry/backoff, JSON parse, validation |
-| `code/services/prompt_builder.py` | System prompt + per-claim user prompt |
-| `code/services/risk_aggregator.py` | Merge perception + history flags → risk_flags |
-| `code/services/rule_engine.py` | Deterministic: valid_image, evidence_standard_met, claim_status, severity |
-| `code/services/output_writer.py` | Write ClaimResult list → output.csv; QUOTE_ALL |
-| `code/main.py` | Pipeline entry point |
-| `code/evaluation/metrics.py` | accuracy(), jaccard_similarity(), generate_summary(), compare |
-| `code/evaluation/main.py` | Strategy A vs B evaluation on sample_claims.csv |
-| `code/evaluation/evaluation_report.md` | Evaluation findings template |
-| `README.md` | Setup, usage, architecture, schema, design decisions |
-| `requirements.txt` | google-generativeai, pydantic, python-dotenv |
-| `.env.example` | Environment variable template |
-
----
-
-## Submission Checklist
-
-- [ ] Run evaluation: `python code/evaluation/main.py`
-  - Fill in actual metrics in `code/evaluation/evaluation_report.md`
-  - Record winning strategy
-- [ ] Run production pipeline: `python code/main.py`
-  - Confirm exit code 0 (no errors)
-  - Confirm `output.csv` exists at repo root
-- [ ] Validate output schema
-  - `output.csv` has exactly 46 rows (one per claim in `claims.csv`)
-  - All 14 required columns present in correct order
-  - Boolean fields are lowercase `true`/`false`
-  - `risk_flags` and `supporting_image_ids` use semicolon separation or `none`
-- [ ] Prepare code zip
-  - Include: `code/`, `requirements.txt`, `.env.example`, `README.md`, `STATUS.md`
-  - Exclude: `.env`, `__pycache__/`, `*.pyc`, `venv/`, `.git/`
-- [ ] Export chat transcript (`$HOME/hackerrank_orchestrate/log.txt`)
-- [ ] Submit on HackerRank Community Platform:
-  1. `code.zip`
-  2. `output.csv`
-  3. `log.txt` (chat transcript)
-- [ ] Prepare for AI Judge interview
-  - Architecture walkthrough ready
-  - Able to explain perception vs rule engine split
-  - Strategy A vs B comparison results memorised
-  - Cost and latency numbers ready
+```json
+{
+  "claim_id": "user_002__images-test-case_001-img_1_img_2_img_3",
+  "perception": {
+    "...GeminiPerception fields..."
+  },
+  "result": {
+    "...ClaimResult fields..."
+  }
+}
+```
 
 ---
 
-## Technical Notes
+# Progress
 
-- `google-generativeai` SDK used (deprecated, functional; migrate to `google.genai` post-hackathon).
-- No LangChain, no database, no message queue — intentionally minimal.
-- All business decisions are in pure Python — auditable and deterministic.
-- Failed claims are skipped with logging; pipeline completes even under partial failure.
+| Phase | Description                                           | Status     |
+| ----- | ----------------------------------------------------- | ---------- |
+| 1     | Foundation (Models, Config, CSV Loader, Image Loader) | ✅ Complete |
+| 2     | Gemini Integration (Gemini Client, Prompt Builder)    | ✅ Complete |
+| 3     | Rule Engine (Rule Engine, Risk Aggregator)            | ✅ Complete |
+| 4     | Pipeline (Output Writer, Main Pipeline)               | ✅ Complete |
+| 5     | Evaluation Framework                                  | ✅ Complete |
+| 6     | Cache + Resume System                                 | ✅ Complete |
+
+---
+
+# Completed Modules
+
+| File                                   | Purpose                             | Status |
+| -------------------------------------- | ----------------------------------- | ------ |
+| `code/models.py`                       | Pydantic v2 domain models and enums | ✅      |
+| `code/config.py`                       | Configuration and constants         | ✅      |
+| `code/services/csv_loader.py`          | CSV loading and parsing             | ✅      |
+| `code/services/image_loader.py`        | Image encoding and MIME detection   | ✅      |
+| `code/services/prompt_builder.py`      | Gemini prompt generation            | ✅      |
+| `code/services/gemini_client.py`       | Gemini API integration and retries  | ✅      |
+| `code/services/risk_aggregator.py`     | Risk flag aggregation               | ✅      |
+| `code/services/rule_engine.py`         | Deterministic business logic        | ✅      |
+| `code/services/cache_manager.py`       | Cache and checkpoint management     | ✅      |
+| `code/services/output_writer.py`       | Output CSV generation               | ✅      |
+| `code/main.py`                         | Main pipeline entry point           | ✅      |
+| `code/evaluation/metrics.py`           | Evaluation metrics                  | ✅      |
+| `code/evaluation/main.py`              | Strategy evaluation runner          | ✅      |
+| `code/evaluation/evaluation_report.md` | Evaluation documentation            | ✅      |
+| `README.md`                            | Project documentation               | ✅      |
+| `requirements.txt`                     | Dependencies                        | ✅      |
+| `.env.example`                         | Environment template                | ✅      |
+
+---
+
+# Configuration Reference
+
+| Variable          | Default                  | Description                  |
+| ----------------- | ------------------------ | ---------------------------- |
+| `GEMINI_API_KEY`  | Required                 | Gemini API key               |
+| `ENABLE_CACHE`    | `true`                   | Disable caching with `false` |
+| `CACHE_DIR`       | `.cache/`                | Cache root directory         |
+| `CHECKPOINT_FILE` | `.cache/checkpoint.json` | Checkpoint path              |
+
+---
+
+# Submission Checklist
+
+## Evaluation
+
+* [ ] Run evaluation pipeline
+
+```bash
+python code/evaluation/main.py
+```
+
+* [ ] Update `evaluation_report.md` with actual metrics
+
+---
+
+## Production Run
+
+* [x] Execute production pipeline
+
+```bash
+python code/main.py
+```
+
+* [x] `output.csv` generated
+* [x] 44 rows verified
+* [x] 14 columns verified
+* [x] Boolean values validated
+* [x] Semicolon-separated fields validated
+
+---
+
+## Submission Package
+
+### Include
+
+* `code/`
+* `requirements.txt`
+* `.env.example`
+* `README.md`
+* `STATUS.md`
+
+### Exclude
+
+* `.env`
+* `.venv/`
+* `.cache/`
+* `__pycache__/`
+* `*.pyc`
+
+### Additional Files
+
+* Export chat transcript:
+
+```bash
+$HOME/hackerrank_orchestrate/log.txt
+```
+
+### Final Submission
+
+Submit:
+
+* `code.zip`
+* `output.csv`
+* `log.txt`
+
+---
+
+## AI Judge Preparation
+
+* [ ] Architecture walkthrough ready
+* [ ] Perception vs Rule Engine explanation ready
+* [ ] Cache and Checkpoint explanation ready
+* [ ] Cost and latency metrics prepared
+* [ ] Strategy A vs B comparison prepared
+
+---
+
+# Current Status
+
+✅ **Feature Complete**
+✅ **Submission Ready**
+
+---
+
+# Evaluation Report
+
+`code/evaluation/evaluation_report.md`
+
+---
+
+# Executive Summary
+
+| Item                | Value                    |
+| ------------------- | ------------------------ |
+| Evaluation Date     | June 2026                |
+| Sample Records      | 20                       |
+| Production Records  | 44                       |
+| Strategies Compared | Strategy A vs Strategy B |
+| Winning Strategy    | Not Measured             |
+| Mean Accuracy       | Not Measured             |
+| Primary Metric      | Not Measured             |
+
+The production pipeline processed all 44 claims successfully with zero failures and generated a valid `output.csv`.
+
+---
+
+# Evaluation Methodology
+
+## Dataset
+
+### Sample Dataset
+
+* `dataset/sample_claims.csv`
+* 20 labeled claims
+
+### Production Dataset
+
+* `dataset/claims.csv`
+* 44 claims
+
+### Images
+
+* `dataset/images/sample/`
+
+---
+
+## Evaluation Process
+
+1. Load sample dataset
+2. Run Strategy A
+3. Run Strategy B
+4. Compare predictions with ground truth
+5. Select winning strategy
+
+---
+
+## Metrics
+
+### Exact Match Accuracy
+
+Evaluated fields:
+
+* `claim_status`
+* `evidence_standard_met`
+* `valid_image`
+* `severity`
+* `issue_type`
+* `object_part`
+
+### Jaccard Similarity
+
+Evaluated field:
+
+* `risk_flags`
+
+### Mean Accuracy
+
+Average across all accuracy metrics.
+
+---
+
+# Strategy Definitions
+
+## Strategy A — Production Prompt
+
+Base prompt defined in:
+
+```text
+services/prompt_builder.py
+```
+
+Characteristics:
+
+* Reports only visible evidence
+* No edge-case enhancements
+
+---
+
+## Strategy B — Refined Prompt
+
+Adds:
+
+* Ambiguity handling
+* Wrong-object priority rules
+* Strict null handling
+* Better multi-turn claim extraction
+
+---
+
+# Strategy Comparison
+
+Not measured during the final production run.
+
+Generate comparison using:
+
+```bash
+python code/evaluation/main.py
+```
+
+---
+
+# Final Strategy Selected
+
+**Strategy A**
+
+Used to generate the final production `output.csv`.
+
+---
+
+# Operational Analysis
+
+## Production Run Statistics
+
+| Metric       | Value |
+| ------------ | ----- |
+| Claims       | 44    |
+| Gemini Calls | 8     |
+| Cache Hits   | 36    |
+
+---
+
+## Token Usage Estimate
+
+| Component      | Tokens |
+| -------------- | ------ |
+| System Prompt  | ~600   |
+| User Prompt    | ~300   |
+| Images         | ~1000  |
+| Output JSON    | ~400   |
+| Total Per Call | ~2300  |
+
+### Full Cold Run
+
+| Metric        | Value   |
+| ------------- | ------- |
+| Input Tokens  | ~83,600 |
+| Output Tokens | ~17,600 |
+
+---
+
+## Cost Estimate
+
+### Gemini 2.5 Flash
+
+| Scenario   | Cost    |
+| ---------- | ------- |
+| Full Run   | ~$0.011 |
+| Cached Run | ~$0.002 |
+
+Approximate cost reduction:
+
+**~82%**
+
+---
+
+## Runtime Estimate
+
+| Scenario   | Runtime     |
+| ---------- | ----------- |
+| Cold Run   | ~3 Minutes  |
+| Cached Run | ~32 Seconds |
+
+---
+
+## Rate Limits
+
+* Inter-call sleep: `1s`
+* Retry strategy: exponential backoff
+* Free tier limit: `10 RPM`
+* Cache minimizes quota usage
+
+---
+
+# Failure Modes Observed
+
+| Failure Mode            | Observed | Notes                        |
+| ----------------------- | -------- | ---------------------------- |
+| Gemini Quota Exceeded   | Yes      | Resolved via resume system   |
+| JSON Parse Failure      | No       | Retry mechanism available    |
+| Missing Images          | No       | Gracefully handled           |
+| Corrupt Cache           | No       | Auto re-processing supported |
+| Claim Extraction Errors | Unknown  | Depends on model behavior    |
+
+---
+
+# Final Recommendation
+
+The final system successfully processed all claims and generated valid output.
+
+## Key Strengths
+
+* Deterministic business logic
+* Prompt injection resistance
+* Multi-image support
+* Aggressive caching
+* Checkpoint recovery
+* Low execution cost
+
+## Future Improvements
+
+* Run formal evaluation before submission
+* Add few-shot examples
+* Migrate to `google.genai`
+* Improve edge-case handling
+* Expand evaluation coverage
+
+---
+
+**Final Status:** ✅ Ready for Submission
